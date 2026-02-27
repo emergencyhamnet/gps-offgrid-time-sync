@@ -51,6 +51,19 @@ challenges. It simply works.
 -   Uses **2.5 mm TRS (3‑conductor) plug**
 -   Supply voltage: **3.3V**
 
+## Alternate Hardware Option (Simple USB GPS)
+
+If you do not want to build a TRS-to-UART interface, a USB-terminated GPS
+receiver is a practical alternative.
+
+-   Typical cost: about **$12 USD** on Amazon (varies by seller and chipset)
+-   Usually presents as a serial COM port on Windows
+-   Common output: NMEA 0183 (`$GPRMC` / `$GNRMC`, etc.)
+-   Often works at 9600 baud, but verify in Device Manager/vendor docs
+
+For this project, either hardware path is valid as long as UTC sentences are
+available on a COM port.
+
 ## USB‑UART Adapter
 
 -   FTDI / CP2102 / CH340 compatible
@@ -74,6 +87,22 @@ Confirmed by:
 3.  Observing stable serial output
 
 UART output is push‑pull. No pull‑ups required.
+
+------------------------------------------------------------------------
+
+# Hardware and Run Captures
+
+## Salvaged hardware setup
+
+![Actual hardware](actual-harware.jpg)
+
+## GPS with USB interface example
+
+![GPS with USB adapter](GPS-with-USB.png)
+
+## Batch run screen capture
+
+![Batch run output](screen-capture.png)
 
 ------------------------------------------------------------------------
 
@@ -182,20 +211,44 @@ while True:
 
 ------------------------------------------------------------------------
 
-# Smart GPS Sync Utility (Full Script)
+# Smart GPS Sync Utility
 
-This version:
+The current `gps_time_sync.py` workflow:
 
--   Detects GPS presence
--   Waits for valid fix
--   Checks Windows time source
--   Prompts before syncing
--   Supports `--auto-sync`
+-   Accepts serial port as positional value (`COM10`) or `--port COM10`
+-   Waits for valid RMC fix (`GPRMC not valid yet...` message)
+-   Calculates and displays UTC offset
+-   Warns when offset exceeds `--warn`
+-   Syncs only when offset exceeds `--sync-threshold`
 
-``` python
-# (Full smart sync script content as previously developed)
-# For brevity in this preview, use the finalized gps_time_sync.py from the project.
-```
+Example:
+
+    python gps_time_sync.py COM10 --warn 0.35 --sync-threshold 0.75
+
+Use `--dry-run` to measure/verify without changing the system clock.
+
+------------------------------------------------------------------------
+
+# Windows Batch Launcher + Admin Shortcut
+
+The included launcher:
+
+-   `Run_GPS_Time_Sync.bat`
+
+Current command in the batch file:
+
+    python gps_time_sync.py COM10 --warn 0.35 --sync-threshold 0.75
+
+Because Windows time set operations require elevation, create an administrator
+shortcut:
+
+1.  Right-click `Run_GPS_Time_Sync.bat` → **Create shortcut**
+2.  Right-click the shortcut → **Properties**
+3.  Select **Advanced...**
+4.  Enable **Run as administrator**
+5.  Use that shortcut for normal operation
+
+This keeps operating workflow simple and repeatable before FT8 sessions.
 
 ------------------------------------------------------------------------
 
