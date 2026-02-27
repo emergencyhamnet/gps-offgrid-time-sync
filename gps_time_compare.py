@@ -42,11 +42,19 @@ def parse_nmea_rmc_utc(line: str):
 
 def get_gps_utc(port: str, baud: int, timeout: float):
     with serial.Serial(port=port, baudrate=baud, timeout=timeout) as ser:
+        warned_not_valid_yet = False
         for _ in range(200):
             raw = ser.readline().decode(errors="ignore").strip()
             gps_dt = parse_nmea_rmc_utc(raw)
             if gps_dt is not None:
                 return gps_dt, raw
+
+            if raw.startswith("$"):
+                parts = raw.split(",")
+                if len(parts) >= 3 and parts[0].lstrip("$").endswith("RMC") and parts[2] != "A":
+                    if not warned_not_valid_yet:
+                        print("GPRMC not valid yet (waiting for GPS fix)...")
+                        warned_not_valid_yet = True
     return None, None
 
 
