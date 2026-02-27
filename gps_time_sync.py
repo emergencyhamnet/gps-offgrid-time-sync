@@ -87,22 +87,42 @@ def set_windows_utc(dt_utc: datetime):
 
 def main():
     parser = argparse.ArgumentParser(description="Set Windows UTC from GPS RMC UTC.")
-    parser.add_argument("--port", required=True, help="Serial port (e.g. COM3)")
+    parser.add_argument("port", nargs="?", help="Serial port (e.g. COM3)")
+    parser.add_argument("--port", dest="port_opt", help="Serial port (e.g. COM3)")
     parser.add_argument("--baud", type=int, default=9600, help="Baud rate (default: 9600)")
     parser.add_argument("--timeout", type=float, default=3.0, help="Serial read timeout seconds")
+    parser.add_argument("--warn", type=float, default=0.25, help="Warn if absolute offset is at least this many seconds (default: 0.25)")
+    parser.add_argument("--sync-threshold", type=float, default=0.5, help="Only sync when absolute offset is at least this many seconds (default: 0.5)")
     parser.add_argument("--dry-run", action="store_true", help="Show target UTC without setting system time")
     args = parser.parse_args()
 
-    gps_dt, sentence = get_gps_utc(args.port, args.baud, args.timeout)
+    port = args.port_opt or args.port
+    if not port:
+        parser.error("the following arguments are required: --port (or positional port)")
+
+    gps_dt, sentence = get_gps_utc(port, args.baud, args.timeout)
     if gps_dt is None:
         print("No valid RMC UTC sentence received from GPS.")
         return
 
+    system_dt = datetime.now(timezone.utc)
+    offset_seconds = (system_dt - gps_dt).total_seconds()
+    abs_offset = abs(offset_seconds)
+
     print(f"NMEA: {sentence}")
     print(f"GPS UTC to apply: {gps_dt.isoformat()}")
+    print(f"System UTC now : {system_dt.isoformat()}")
+    print(f"Offset (system - gps): {offset_seconds:+.3f} s")
+
+    if abs_offset >= args.warn:
+        print(f"WARNING: absolute offset {abs_offset:.3f} s exceeds warn threshold {args.warn:.3f} s")
 
     if args.dry_run:
         print("Dry run enabled; system clock was not changed.")
+        return
+
+    if abs_offset < args.sync_threshold:
+        print(f"No sync needed (|offset| {abs_offset:.3f} s < sync threshold {args.sync_threshold:.3f} s).")
         return
 
     set_windows_utc(gps_dt)
